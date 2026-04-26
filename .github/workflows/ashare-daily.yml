@@ -1,0 +1,43 @@
+name: A股量化推荐 — 每日自动运行
+
+on:
+  schedule:
+    # 北京时间 15:30 = UTC 07:30 (周一至周五)
+    - cron: '30 7 * * 1-5'
+  workflow_dispatch:  # 支持手动触发
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ashare-daily:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run A-share quant analysis
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+        run: python3 runner.py 2>&1
+
+      - name: Upload daily report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ashare-report-${{ github.run_id }}
+          path: reports/
+          retention-days: 7

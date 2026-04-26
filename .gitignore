@@ -1,0 +1,26 @@
+# Data files
+data/recommendations.json
+
+# Reports
+reports/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.so
+.Python
+
+# Environment
+.env
+.venv/
+env/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
