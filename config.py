@@ -1,6 +1,7 @@
 """
 A股量化推荐系统 - 配置文件 (幻方量化增强版)
 """
+import os
 from datetime import datetime, timedelta
 
 CONFIG = {
@@ -64,13 +65,18 @@ CONFIG = {
     # 运行模式
     'mode': 'daily',            # 'daily' 每日推荐, 'backtest' 历史回测
 
-    # 数据路径
-    'data_dir': '/home/cdh/ashare_quant/data',
-    'reports_dir': '/home/cdh/ashare_quant/reports',
+    # 数据路径 (相对于项目根目录)
+    'data_dir': 'data',
+    'reports_dir': 'reports',
 
     # 行业黑名单 (排除的行业)
     'exclude_industries': [],
 }
+
+# 数据路径 (基于项目根目录自动解析)
+_PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+CONFIG['data_dir'] = os.path.join(_PROJECT_ROOT, CONFIG['data_dir'])
+CONFIG['reports_dir'] = os.path.join(_PROJECT_ROOT, CONFIG['reports_dir'])
 
 # 自动计算日期
 CONFIG['end_date'] = datetime.now().strftime('%Y%m%d')
