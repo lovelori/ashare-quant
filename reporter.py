@@ -8,7 +8,7 @@ from config import CONFIG
 
 
 def generate_report(picks: list, sell_signals: list, stock_count: int,
-                    date_str: str = None) -> str:
+                    date_str: str = None, market_state: dict = None) -> str:
     """
     生成完整的日报文本
     """
@@ -21,6 +21,10 @@ def generate_report(picks: list, sell_signals: list, stock_count: int,
     lines.append(separator)
     lines.append(f"  📊 A股量化推荐系统 · 每日报告")
     lines.append(f"  {date_str}  |  沪深300成分股分析  |  共{stock_count}支")
+    if market_state:
+        regime = market_state.get('regime', '?')
+        emoji = {'bull': '🐂', 'bear': '🐻', 'range': '➡', 'volatile': '🌊'}.get(regime, '➡')
+        lines.append(f"  {emoji} 市场状态: {regime} (动量:{market_state.get('market_momentum',0):.1f}% 波动:{market_state.get('market_volatility',0):.1f}%)")
     lines.append(separator)
     lines.append('')
 
@@ -44,7 +48,7 @@ def generate_report(picks: list, sell_signals: list, stock_count: int,
     lines.append(f'  🏆 【今日推荐 · TOP {CONFIG["top_n"]}】')
     lines.append('─' * 68)
 
-    header = f'  {"排名":>3} {"代码":>7} {"名称":>10} {"总分":>6} {"趋势":>6} {"动量":>6} {"量价":>6} {"情绪":>6} {"形态":>6}'
+    header = f'  {"排名":>3} {"代码":>7} {"名称":>10} {"总分":>6} {"趋势":>6} {"动量":>6} {"量价":>6} {"情绪":>6} {"AI":>6}'
     lines.append(header)
     lines.append('  ' + '─' * 66)
 
@@ -59,10 +63,12 @@ def generate_report(picks: list, sell_signals: list, stock_count: int,
         mom = f"{d['momentum']:.0f}"
         vol = f"{d['volume']:.0f}"
         sent = f"{d['sentiment']:.0f}"
-        pat = f"{d['pattern']:.0f}"
+        # AI综合分
+        hf = pick.get('hf_details', {})
+        ai_score = str(int(hf.get('ml_score', 50))) if hf else '--'
 
         emoji = '🟢' if score >= 75 else ('🟡' if score >= 60 else '🔴')
-        lines.append(f'  {medal} {code:>7} {name:>8} {emoji}{score:>5.1f} {trend:>5} {mom:>5} {vol:>5} {sent:>5} {pat:>5}')
+        lines.append(f'  {medal} {code:>7} {name:>8} {emoji}{score:>5.1f} {trend:>5} {mom:>5} {vol:>5} {sent:>5} {ai_score:>5}')
 
     lines.append('')
 
@@ -115,9 +121,10 @@ def generate_report(picks: list, sell_signals: list, stock_count: int,
 
 
 def _generate_reasons(pick: dict) -> list:
-    """为推荐生成简洁的理由"""
+    """为推荐生成简洁的理由 (含AI策略说明)"""
     reasons = []
     d = pick['details']
+    hf = pick.get('hf_details', {})
 
     if d['trend'] >= 70:
         reasons.append('均线多头排列，趋势向上')
@@ -127,10 +134,14 @@ def _generate_reasons(pick: dict) -> list:
         reasons.append('成交量配合良好，放量上攻')
     if d['sentiment'] >= 65:
         reasons.append('舆情偏积极，近期有正面消息')
-    if d['pattern'] >= 65:
-        reasons.append('出现看涨K线形态')
-    if d['volatility'] >= 65:
-        reasons.append('波动率适中，布林带开口扩张')
+
+    # 幻方AI策略理由
+    if hf:
+        ml = hf.get('ml_score', 50)
+        if ml >= 70:
+            reasons.append(f'幻方AI评分{ml:.0f}，模型看好后续走势')
+        elif ml >= 60:
+            reasons.append(f'AI策略评分{ml:.0f}，技术面与情绪共振')
 
     if not reasons:
         reasons.append('综合评分排名靠前')
