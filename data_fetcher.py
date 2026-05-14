@@ -76,6 +76,88 @@ def get_daily_kline(symbol: str, retries: int = 2) -> pd.DataFrame:
     return pd.DataFrame()
 
 
+# ─── 市值排名 (Sina行情中心API) ───
+
+def fetch_market_caps(max_stocks: int = 6000) -> dict:
+    """
+    从新浪行情中心获取全A股实时市值数据
+    返回: {code: {'name': str, 'mktcap': float(元), 'trade': float}}
+    """
+    nodes = [
+        ('sh_a', '沪市主板'),
+        ('sz_a', '深市主板'),
+        ('kcb', '科创板'),
+    ]
+
+    all_stocks = {}
+    for node, desc in nodes:
+        for page in range(1, 60):
+            url = (
+                f'https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/'
+                f'Market_Center.getHQNodeData?page={page}&num=100&sort=symbol&asc=1'
+                f'&node={node}&symbol=&_s_r_a=init'
+            )
+            try:
+                r = requests.get(url, timeout=10, headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                })
+                data = r.json()
+            except Exception:
+                break
+            if not data or len(data) == 0:
+                break
+            for s in data:
+                code = s['code']
+                if code not in all_stocks:
+                    mktcap = float(s.get('mktcap', 0)) * 10000  # 新浪mktcap单位是万元 -> 元
+                    all_stocks[code] = {
+                        'name': s['name'],
+                        'mktcap': mktcap,
+                        'trade': float(s.get('trade', 0)),
+                    }
+            if len(data) < 100:
+                break
+            time.sleep(0.12)
+
+    return all_stocks
+
+
+def get_top_n_by_market_cap(n: int = 1000) -> pd.DataFrame:
+    """
+    获取A股市值前N的股票
+    返回: DataFrame [code, name, mktcap]
+    """
+    print(f"[市值] 获取全A股市值排名 TOP {n}...")
+    t_start = time.time()
+
+    caps = fetch_market_caps()
+
+    # 按市值降序排序
+    sorted_stocks = sorted(caps.items(), key=lambda x: x[1]['mktcap'], reverse=True)
+
+    rows = []
+    for code, info in sorted_stocks[:n]:
+        rows.append({
+            'code': code,
+            'name': info['name'],
+            'mktcap': info['mktcap'],
+        })
+
+    df = pd.DataFrame(rows)
+    elapsed = time.time() - t_start
+    print(f"[市值] TOP {len(df)} 股票已选出 (总耗时 {elapsed:.0f}s)")
+    if len(df) > 0:
+        threshold = df['mktcap'].iloc[-1] / 1e8
+        print(f"[市值] 门槛: {threshold:.1f}亿 ({df.iloc[-1]['name']})")
+
+        # 打印TOP 10预览
+        print(f"[市值] TOP 10预览:")
+        for i, (_, row) in enumerate(df.head(10).iterrows()):
+            print(f"  {i+1:>2}. {row['code']} {row['name']} 市值:{row['mktcap']/1e8:.1f}亿")
+
+    return df
+
+
 # ─── 股票池 ───
 
 def get_stock_universe() -> pd.DataFrame:
@@ -95,6 +177,29 @@ def get_stock_universe() -> pd.DataFrame:
             return result
         except Exception as e:
             print(f"[池] 获取沪深300失败: {e}, 使用全市场列表")
+            return _fallback_stock_list()
+
+    elif pool_type == 'top_1000':
+        n = CONFIG.get('market_cap_top_n', 1000)
+        df = get_top_n_by_market_cap(n)
+        print(f"  → A股市值TOP {n} 股票池: {len(df)} 支")
+        return df
+
+    elif pool_type == 'hs300_zz500':
+        try:
+            df300 = ak.index_stock_cons_csindex(symbol='000300')
+            df500 = ak.index_stock_cons_csindex(symbol='000905')
+            df300 = df300[['成分券代码', '成分券名称']].copy()
+            df500 = df500[['成分券代码', '成分券名称']].copy()
+            df300.columns = ['code', 'name']
+            df500.columns = ['code', 'name']
+            df300['code'] = df300['code'].astype(str).str.zfill(6)
+            df500['code'] = df500['code'].astype(str).str.zfill(6)
+            result = pd.concat([df300, df500]).drop_duplicates(subset='code').reset_index(drop=True)
+            print(f"[池] 沪深300+中证500合并: {len(result)} 支 (沪深300:{len(df300)}, 中证500:{len(df500)})")
+            return result
+        except Exception as e:
+            print(f"[池] 获取沪深300+中证500失败: {e}, 使用全市场列表")
             return _fallback_stock_list()
 
     elif pool_type == 'all':

@@ -5,8 +5,10 @@ import os
 from datetime import datetime, timedelta
 
 CONFIG = {
-    # 股票池: 'hs300' = 沪深300, 'all' = 全市场, 或自定义代码列表
-    'stock_pool': 'hs300',
+    # 股票池: 'hs300' = 沪深300, 'hs300_zz500' = 沪深300+中证500,
+    #        'top_1000' = A股市值TOP 1000, 'all' = 全市场, 或自定义代码列表
+    'stock_pool': 'top_1000',
+    'market_cap_top_n': 1000,  # 市值TOP N (仅 stock_pool='top_1000' 时生效)
 
     # 技术分析参数
     'kline_days': 120,          # 每支股获取多少天K线数据

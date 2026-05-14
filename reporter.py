@@ -20,7 +20,15 @@ def generate_report(picks: list, sell_signals: list, stock_count: int,
 
     lines.append(separator)
     lines.append(f"  📊 A股量化推荐系统 · 每日报告")
-    lines.append(f"  {date_str}  |  沪深300成分股分析  |  共{stock_count}支")
+    pool_label = '沪深300'
+    if CONFIG['stock_pool'] == 'hs300_zz500':
+        pool_label = '沪深300+中证500'
+    elif CONFIG['stock_pool'] == 'top_1000':
+        pool_label = f'A股市值TOP {CONFIG.get("market_cap_top_n", 1000)}'
+    elif CONFIG['stock_pool'] == 'all':
+        pool_label = '全市场'
+
+    lines.append(f'  {date_str}  |  {pool_label}分析  |  共{stock_count}支')
     if market_state:
         regime = market_state.get('regime', '?')
         emoji = {'bull': '🐂', 'bear': '🐻', 'range': '➡', 'volatile': '🌊'}.get(regime, '➡')
@@ -48,7 +56,7 @@ def generate_report(picks: list, sell_signals: list, stock_count: int,
     lines.append(f'  🏆 【今日推荐 · TOP {CONFIG["top_n"]}】')
     lines.append('─' * 68)
 
-    header = f'  {"排名":>3} {"代码":>7} {"名称":>10} {"总分":>6} {"趋势":>6} {"动量":>6} {"量价":>6} {"情绪":>6} {"AI":>6}'
+    header = f'  {"排名":>3} {"代码":>7} {"名称":>10} {"总分":>6} {"趋势":>6} {"动量":>6} {"量价":>6} {"情绪":>6} {"AI":>6} {"市值":>10}'
     lines.append(header)
     lines.append('  ' + '─' * 66)
 
@@ -66,9 +74,12 @@ def generate_report(picks: list, sell_signals: list, stock_count: int,
         # AI综合分
         hf = pick.get('hf_details', {})
         ai_score = str(int(hf.get('ml_score', 50))) if hf else '--'
+        # 市值信息
+        mktcap = pick.get('mktcap', 0)
+        mktcap_str = f"{mktcap/1e8:.0f}亿" if mktcap else ''
 
         emoji = '🟢' if score >= 75 else ('🟡' if score >= 60 else '🔴')
-        lines.append(f'  {medal} {code:>7} {name:>8} {emoji}{score:>5.1f} {trend:>5} {mom:>5} {vol:>5} {sent:>5} {ai_score:>5}')
+        lines.append(f'  {medal} {code:>7} {name:>8} {emoji}{score:>5.1f} {trend:>5} {mom:>5} {vol:>5} {sent:>5} {ai_score:>5} {mktcap_str:>10}')
 
     lines.append('')
 

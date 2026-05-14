@@ -229,7 +229,8 @@ def rank_stocks(scores: dict) -> list:
     return ranked
 
 
-def get_top_picks(scored_stocks: dict, stock_names: dict, top_n: int = None) -> list:
+def get_top_picks(scored_stocks: dict, stock_names: dict, top_n: int = None,
+                   stock_mktcaps: dict = None) -> list:
     """获取评分最高的N支股票"""
     if top_n is None:
         top_n = CONFIG['top_n']
@@ -252,6 +253,7 @@ def get_top_picks(scored_stocks: dict, stock_names: dict, top_n: int = None) -> 
             'sentiment_score': score['details'].get('sentiment', 50),
             'current_price': score.get('current_price', None),
             'buy_price': score.get('current_price', None),
+            'mktcap': (stock_mktcaps or {}).get(code, 0),
         })
 
     return picks

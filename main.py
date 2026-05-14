@@ -43,6 +43,8 @@ def run_daily_analysis(test_mode: bool = False, classic_mode: bool = False):
     if test_mode and len(stocks) > 20:
         stocks = stocks.head(20)
     stock_names = dict(zip(stocks['code'], stocks['name']))
+    # 市值信息 (top_1000模式可用)
+    stock_mktcaps = dict(zip(stocks['code'], stocks['mktcap'])) if 'mktcap' in stocks.columns else {}
     print(f"  → {len(stocks)} 支股票待分析\n")
 
     # ─── 步骤2: 获取K线数据 ───
@@ -97,7 +99,7 @@ def run_daily_analysis(test_mode: bool = False, classic_mode: bool = False):
 
     scores = compute_all_scores(tech_data, sentiment_data, stock_names,
                                 deep_data, alpha_data, ml_scores, market_state)
-    picks = get_top_picks(scores, stock_names, CONFIG['top_n'])
+    picks = get_top_picks(scores, stock_names, CONFIG['top_n'], stock_mktcaps)
     print(f"  → TOP 6 已选出，最高分: {picks[0]['total_score']:.1f}\n")
 
     # ─── 步骤6: 卖出信号检测 ───
